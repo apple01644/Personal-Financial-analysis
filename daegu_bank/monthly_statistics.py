@@ -1,4 +1,4 @@
-import calendar
+import datetime
 import math
 
 from .classification_statistics import ClassificationStatistics
@@ -26,9 +26,15 @@ class MonthlyStatistics:
         self.total_loss = -sum([row.loss for row in my_data_rows_group_by_month])
         self.total_delta = self.total_income + self.total_loss
 
-        self.day_count = len(
-            [day for day in calendar.Calendar().itermonthdays(year=int(self.date[0:4]), month=int(self.date[5:7]))
-             if day != 0])
+        now_day = datetime.datetime.now().date()
+        iter_day = self.start_date
+        self.day_count = 1
+        self.left_day_count = 0
+        while iter_day != self.end_date:
+            iter_day += datetime.timedelta(days=1)
+            if iter_day >= now_day:
+                self.left_day_count += 1
+            self.day_count += 1
 
         self.income_by_day = math.floor(self.total_income / self.day_count)
         self.loss_by_day = math.floor(self.total_loss / self.day_count)
