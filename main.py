@@ -1,4 +1,3 @@
-import colorsys
 import math
 import os
 import sys
@@ -11,6 +10,7 @@ import pygame.gfxdraw
 import pygame.locals
 
 from daegu_bank.classification_statistics import ClassificationStatistics
+from daegu_bank.monthly_statistics import MonthlyStatistics
 from personal_financial_analyzer import PersonalFinancialAnalyzer
 
 
@@ -56,7 +56,7 @@ class Viewer:
         return [k for k in pfa.analysis_target_dates.keys()][self.selected_date_index]
 
     @property
-    def monthly_statistics(self):
+    def monthly_statistics(self) -> MonthlyStatistics:
         return pfa.monthly_statistics_folder[self.target_date]
 
     def button_up_target_date(self):
@@ -121,7 +121,10 @@ class Viewer:
                                       self.monthly_statistics.classification_statistics.classified_transactions_folder.values()])
 
         self.draw_h1(self.target_date, 0, 0)
-        self.draw_h3('{}/{}'.format(self.monthly_statistics.start_date, self.monthly_statistics.end_date), 4, 40)
+        self.draw_h3('{}/{}({}/{})'.format(self.monthly_statistics.start_date, self.monthly_statistics.end_date,
+                                           self.monthly_statistics.day_count - self.monthly_statistics.left_day_count,
+                                           self.monthly_statistics.day_count),
+                     4, 40)
         self.draw_h2('월수입: {: >+12,}원'.format(self.monthly_statistics.total_income), 0, 55 + 30 * 0, color=green_text)
         self.draw_h2('월지출: {: >+12,}원'.format(self.monthly_statistics.total_loss), 0, 55 + 30 * 1, color=red_text)
         self.draw_h2('월손익: {: >+12,}원'.format(self.monthly_statistics.total_delta), 0, 55 + 30 * 2,
@@ -134,7 +137,15 @@ class Viewer:
         self.draw_h3('시작예금: {: >12,}원'.format(self.monthly_statistics.start_balance), 4, 140 + 18 * 3)
         self.draw_h3('종료예금: {: >12,}원'.format(self.monthly_statistics.end_balance), 4, 140 + 18 * 4)
 
-        self.draw_h3('{: >24,}원/p'.format(total_abstract_balance / 100), 4, 140 + 18 * 5)
+        self.draw_h3('{: >24,}원/p'.format(total_abstract_balance // 100), 4, 140 + 18 * 5)
+
+        if self.monthly_statistics.left_day_count > 0:
+            x = int(self.monthly_statistics.end_balance / self.monthly_statistics.left_day_count)
+            self.draw_h3('일일소진액(전액소진 도달): {: >12,}원'.format(x), 4, 140 + 18 * 6)
+            x = int((
+                                self.monthly_statistics.end_balance - self.monthly_statistics.start_balance) / self.monthly_statistics.left_day_count)
+            self.draw_h3('일일소진액(이월잔액 도달): {: >12,}원'.format(x), 4, 140 + 18 * 7,
+                         color=[0, 0, 0] if x > 0 else [255, 0, 0])
 
         self.render_pie_graph()
         self.render_graph()
@@ -145,6 +156,7 @@ class Viewer:
         total_abstract_balance = sum([abs(classified_transaction.balance) \
                                       for classified_transaction in
                                       self.monthly_statistics.classification_statistics.classified_transactions_folder.values()])
+        total_abstract_balance += self.monthly_statistics.start_balance
         increment_abstract_balance = 0
         graph_radius = int(Viewer.client_h * 0.9 / 2)
         graph_center = [Viewer.client_w // 2, Viewer.client_h // 2]
@@ -163,11 +175,12 @@ class Viewer:
         for x in range(5):
             for y in range(5):
                 for z in range(5):
-                    good_colors.append([sub_tone - x * sub_linear, main_tone - y * main_linear, sub_tone - z * sub_linear])
-                    bad_colors.append([main_tone - x * main_linear, sub_tone - y * sub_linear, sub_tone - z * sub_linear])
+                    good_colors.append(
+                        [sub_tone - x * sub_linear, main_tone - y * main_linear, sub_tone - z * sub_linear])
+                    bad_colors.append(
+                        [main_tone - x * main_linear, sub_tone - y * sub_linear, sub_tone - z * sub_linear])
         good_colors.sort(key=lambda t: t[0] + t[1] * 2 + t[2])
         bad_colors.sort(key=lambda t: t[0] * 2 + t[1] + t[2])
-
 
         for [class_name,
              classified_transaction] in sorted(
@@ -181,10 +194,10 @@ class Viewer:
             mid_degree = (start_degree + end_degree) / 2
             delta_degree = end_degree - start_degree
 
-            if class_name == 'L_other':
-                pie_color = [70, 50, 50]
-            elif class_name == 'I_other':
-                pie_color = [50, 70, 50]
+            if class_name == 'L-other':
+                pie_color = [110, 110, 110]
+            elif class_name == 'I-other':
+                pie_color = [90, 90, 90]
             else:
                 if classified_transaction.balance > 0:
                     pie_color = good_colors[0]
@@ -236,8 +249,11 @@ class Viewer:
                                    end_degree + bias_degree,
                                    [100, 255, 100] if classified_transaction.balance > 0 else [255, 100, 100])'''
 
-                target_text = '{} {: <2.2f}%'.format(class_name, delta_degree / 360 * 100)
-                self.draw_h3(target_text, Viewer.client_w - 230, outline_y,
+                target_text = '{: <8}:{: >9,}원({: >4.2f}%)'.format(class_name,
+                                                                   (classified_transaction.income) + abs(
+                                                                       classified_transaction.loss),
+                                                                   delta_degree / 360 * 100)
+                self.draw_h3(target_text, Viewer.client_w - 250, outline_y,
                              background=pie_color)
 
                 circle_end_point = [
@@ -250,7 +266,7 @@ class Viewer:
                     graph_center[1] + (graph_radius + 32) * math.sin((mid_degree + bias_degree) / 180 * math.pi)
                 ]
 
-                text_point = [Viewer.client_w - 235, outline_y + 10]
+                text_point = [Viewer.client_w - 250, outline_y + 10]
 
                 pygame.draw.line(self.surf, [0, 0, 0], [int(f) for f in circle_end_point],
                                  [int(f) for f in circle_extend_point])
@@ -275,9 +291,32 @@ class Viewer:
                 outline_y += 30
 
             increment_abstract_balance += abstract_balance
+        if self.monthly_statistics.start_balance / total_abstract_balance >= 0.01:  # Draw balance
+            abstract_balance = abs(self.monthly_statistics.start_balance)
+            bias_degree = round(270) - round(
+                math.atan2(10 - Viewer.client_h / 2, Viewer.client_w - 430 - Viewer.client_w / 2) * 180 / math.pi)
+            start_degree = round(increment_abstract_balance / total_abstract_balance * 360)
+            end_degree = round((increment_abstract_balance + abstract_balance) / total_abstract_balance * 360)
+            pygame.gfxdraw.filled_pie(self.surf, graph_center[0], graph_center[1], graph_radius,
+                                      start_degree + bias_degree,
+                                      end_degree + bias_degree, [200, 200, 200])
+            delta_degree = end_degree - start_degree
+            mid_degree = (start_degree + end_degree) / 2
+            text_center = [int(round(p)) for p in [
+                graph_center[0] + graph_radius * 0.7 * math.cos((mid_degree + bias_degree) / 180 * math.pi),
+                graph_center[1] + graph_radius * 0.7 * math.sin((mid_degree + bias_degree) / 180 * math.pi)
+            ]]
+            text_buffer.append({
+                'x': text_center[0],
+                'y': text_center[1],
+                'class_name': '이월 잔액',
+                'percent': delta_degree / 360 * 100,
+                'abs_value': abstract_balance
+            })
+            increment_abstract_balance += abstract_balance
         for text_data in text_buffer:
             self.draw_h2(text_data['class_name'], text_data['x'], text_data['y'] - 12, center=True)
-            self.draw_h2('{:12,}원({: <2.2f}%)'.format(text_data['abs_value'], text_data['percent']), text_data['x'],
+            self.draw_h2('{:12,}원({: >4.2f}%)'.format(text_data['abs_value'], text_data['percent']), text_data['x'],
                          text_data['y'] + 12, center=True)
 
     def render_graph(self):
@@ -315,7 +354,8 @@ class Viewer:
 try:
     pfa = PersonalFinancialAnalyzer()
     for x in sorted(ClassificationStatistics.unclassified_rows, key=lambda row: abs(row.income) + abs(row.loss)):
-        print(f'"{x}"')
+        if abs(x.income) + abs(x.loss) >= 10:
+            print(f'"{x}"')
     viewer = Viewer(pfa)
     viewer.main_loop()
 except:
