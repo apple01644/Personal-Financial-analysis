@@ -18,6 +18,10 @@ class ClassificationPolicies:
             _name = '상금'
             _note_filter = ['우리(재)한국장학재단', '대구소프트웨']
 
+        class Refund(IncomePolicy):
+            _name = '환불'
+            _note_regex = ['한국철도공사        \S+']
+
         class SellForeignExchange(IncomePolicy):
             _name = '외화매도'
             _note_filter = ['외화적립지급']
@@ -42,12 +46,13 @@ class ClassificationPolicies:
 
         class Consumption(LossPolicy):
             _name = '소비'
-            _note_regex = ['(지에스|GS)25( 불로|드림병원|달서동화)점', '씨유(대구불로대로|밀양무안점|수성롯데캐슬)?', '(팔공)?(E-|이)마트(24 S대구은)?', '다이소대구이시']
+            _note_regex = ['(지에스|GS)25( 불로|드림병원|달서동화)점', '씨유(대구불로대로|밀양무안점|수성롯데캐슬)?', '(팔공)?(E-|이)마트(24 S대구은)?',
+                           '다이소대구이시']
             _note_filter = ['대백마트 (불로)', 'AM픽쳐스', '(주)코리아세븐달']
 
         class Playing(LossPolicy):
             _name = '놀이'
-            _note_filter = ['(주)마루홀딩스 3', '(주)글로벌스포츠', '앤유피씨(NU PC)']
+            _note_filter = ['(주)마루홀딩스 3', '(주)글로벌스포츠', '앤유피씨(NU PC)', '캐슬PC', '제이와이']
 
         class Travel(LossPolicy):
             _name = '여행'
@@ -55,7 +60,7 @@ class ClassificationPolicies:
 
         class EatOut(LossPolicy):
             _name = '외식'
-            _note_filter = ['(주)신세계푸드', '한상바다', '진배기원조할매국', '할리스 봉무공원', '(주)난성/롯데리', '청도새마을휴게소']
+            _note_filter = ['(주)신세계푸드', '한상바다', '진배기원조할매국', '할리스 봉무공원', '(주)난성/롯데리', '청도새마을휴게소', '버거킹 대구이시', '불로수산']
 
         class Education(LossPolicy):
             _name = '교육'
@@ -79,7 +84,6 @@ class ClassificationPolicies:
             _name = '수수료'
             _note_regex = ['\*{5} \d{4}년 \d{2}월 영플러스통장 수수료 면']
             _note_filter = ['공공기관', '법원행정처', 'OTP발급수수료', '현금카드발급']
-
 
 
 special_exceptions = {
